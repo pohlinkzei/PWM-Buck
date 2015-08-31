@@ -6,4 +6,4 @@ Its based on a Atmega88/168/328 AVR with a buck-converter power amplifier. It is
 transistors and the battery voltage. 
 
 Here is where the development begun:
-http://www.t4forum.de/wbb3/index.php?page=Thread&postID=3048611
+http://www.t4forum.de/wbb3/board19-technik-bereich/board120-umbauten-tuning/board8-tipps-und-tricks/165848-gemeinschaftsentwicklung-t4forums-pwm-modul/
