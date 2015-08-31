@@ -23,6 +23,7 @@
 #include "twi_slave.h"
 #include "twi_task.h"
 #include "pwm.h"
+#include <avr/sleep.h>
 #define LED_CLR()	SH_PORT &= ~(1<<LED);
 
   /***********************************************************************************************/
@@ -33,7 +34,7 @@
  uint16_t ee_pwm_freq EEMEM = 12345;
  uint8_t ee_water_value EEMEM = 45;
  uint8_t ee_delay_value EEMEM = 45;
-  volatile uint16_t pwm_freq = 0;
+ volatile uint16_t pwm_freq = 0;
  volatile uint16_t pwm_value_aux = 0;
  volatile uint16_t pwm_top_value = 0;
  volatile uint16_t pwm_temp_value = 0;
@@ -122,7 +123,7 @@ status_t get_status(status_t old){
 	if((((calculate_voltage(adc_value[BAT2VOLTAGE]).integer * 100 + calculate_voltage(adc_value[BAT2VOLTAGE]).fraction) < (MIN_BAT_VOLTAGE)) && (SH_PIN & (1<<AUX_HEAT) && !(SH_PIN & (1<<IGNITION)))) || (calculate_temperature(adc_value[TEMP_FET]) > MAX_FET_TEMP)) status = ERROR;
 	if((old == ERROR) && (calculate_temperature(adc_value[TEMP_FET]) > (MAX_FET_TEMP - 25))) status = ERROR;
 	if((old == ERROR) /*&& ((SH_PIN & (1<<AUX_HEAT) && (!(SH_PIN & (1<<IGNITION)))))*/ && ((calculate_voltage(adc_value[BAT2VOLTAGE]).integer * 100 + calculate_voltage(adc_value[BAT2VOLTAGE]).fraction) < (1250))) status = ERROR;
-	if(old != status){
+	if(old != status ){
 		led_set(status);
 		if(status == AUX_HEAT_ON){
 			second = 0;
@@ -134,10 +135,10 @@ status_t get_status(status_t old){
 			//timer1_init();
 		}			
 		if(old == OFF){
+			dog_init();
 			off = false;
 		}			
 		if(old == PROGRAM){
-			prog_reset = true;
 			dog_init();
 		}
 	}
@@ -228,10 +229,23 @@ void timer1_disable(void){
 }
 /***********************************************************************************************/
 void timer2_init(void){//timer for adc 
+	
+	ACSR = 0x80;
+	
+	// Timer2 konfigurieren
+	
+	ASSR  = (1<< AS2);              
+	__delay_ms(1000);               
+	TCCR2B  = (1<<CS22) /*| (1<<CS21) |(1<<CS20) */;              
+	while((ASSR & (1<< TCR2AUB)));   
+	TIFR2   = (1<<TOV2);             
+	TIMSK2 |= (1<<TOIE2);
+	/*
 	TCCR2A |= (1<<WGM21);//ctc
 	TCCR2B |= (1<<CS22) | (1<<CS21) | (1<<CS20); //prescaler:1024
 	TIMSK2 |= (1<<OCIE2A);
 	OCR2A = 250;
+	*/
 }
 /***********************************************************************************************/
 void adc_init(void){
@@ -477,7 +491,7 @@ void print_pgm_delay(uint8_t delay_val){
 	dog_write_empty_line(NEW_POSITION(7,0));
 }
 /***********************************************************************************************/
-void print_pgm_freq(uint16_t pwm_freq){
+void print_pgm_freq(uint16_t freq){
 	//sprintf(debug,"PROGRAM PWMFREQ %i    ",pwm_freq);
 	//dog_write_small_string(debug);
 	//					  012345678901234
@@ -486,7 +500,7 @@ void print_pgm_freq(uint16_t pwm_freq){
 	//char str1[5] = {0,};
 		//			01234567890
 	char str[] = "f:     Hz ";	//sprintf(str1," f: %5dHz  ",pwm_freq);
-	uint16_to_string(&str[3],pwm_freq);
+	uint16_to_string(&str[3],freq);
 	//stringcopy(str1,&str[4],5);
 	dog_write_big_string(NEW__POSITION(3,4,5),str);
 	dog_write_empty_line(NEW_POSITION(6,0));
@@ -506,13 +520,15 @@ void print_ign_aux(void){
 		str0[2] = batsym[1];
 		sprint_voltage(&str0[3],vbat);
 		char str1[] = " TW  20 gC ";
-		sprint_temperature(&str0[4],fet_temp);
+		sprint_temperature(&str1[4],fet_temp);
 		str1[1] = tfetsym[0];
 		str1[2] = tfetsym[1];
+		str1[8] = centigrade[0];
+		str1[9] = centigrade[1];
 		dog_write_big_string(NEW__POSITION(0,0,7), str0);
-		dog_write_big_string(NEW__POSITION(3,0,1), str1);
-		dog_write_big_string(NEW__POSITION(7,0,0), "           ");
-			
+		dog_write_big_string(NEW__POSITION(3,0,5), str1);
+		//dog_write_big_string(NEW__POSITION(7,0,0), "           ");
+		dog_write_empty_line(NEW_POSITION(6,0));
 	}else{// mit Tempsensor	
 		char str0[] = " VB 12,34V ";
 		str0[1] = batsym[0];
@@ -522,13 +538,17 @@ void print_ign_aux(void){
 		sprint_temperature(&str1[4],fet_temp);
 		str1[1] = tfetsym[0];
 		str1[2] = tfetsym[1];
+		str1[8] = centigrade[0];
+		str1[9] = centigrade[1];
 		char str2[] = " TF 120 gC ";
 		sprint_temperature(&str2[4],water_temp);
 		str2[1] = twatersym[0];
 		str2[2] = twatersym[1];
-		dog_write_big_string(NEW__POSITION(0,0,3), str0);
-		dog_write_big_string(NEW__POSITION(3,0,0), str1);
-		dog_write_big_string(NEW__POSITION(5,0,5), str2);
+		str2[8] = centigrade[0];
+		str2[9] = centigrade[1];
+		dog_write_big_string(NEW__POSITION(0,0,0), str0);
+		dog_write_big_string(NEW__POSITION(2,0,4), str1);
+		dog_write_big_string(NEW__POSITION(5,0,0), str2);
 		//dog_write_numbered_bat_symbol(NEW__POSITION(1,4,4),1);	
 	}
 }	
@@ -569,8 +589,12 @@ void print_error(){
 }
 /***********************************************************************************************/
 void draw_bar_graph(uint8_t value){ // draw a per cent bar graph at the buttom line
-	/*
-	dog_set_position(ROWS - 1,4);
+	
+	dog_set_position(ROWS - 1,0);
+	dog_transmit_data(0x00);
+	dog_transmit_data(0x00);
+	dog_transmit_data(0x00);
+	dog_transmit_data(0x00);
 	uint8_t i;
 	//paint a fan
 	uint8_t fan[8] = {0x00,0x39,0x1B,0x0F,0x3C,0x36,0x27,0x00};
@@ -578,9 +602,10 @@ void draw_bar_graph(uint8_t value){ // draw a per cent bar graph at the buttom l
 	for(i=0; i<8; i++){
 		dog_transmit_data(fan[i]);
 	}
-	/*char text[22];
-	sprintf(text,"PWM: %i                  ",value);
-	dog_write_small_string(text);* /
+	//*
+	//char text[22];
+	//sprintf(text,"PWM: %i                  ",value);
+	//dog_write_small_string(text);* /
 	//dog_transmit_data(0xFF);
 	for(i = 1; i < value; i++){
 		if((i) % 5){
@@ -589,15 +614,24 @@ void draw_bar_graph(uint8_t value){ // draw a per cent bar graph at the buttom l
 			dog_transmit_data(0x00);
 		}
 	}
+	dog_transmit_data(0x00);
 	while(i++ < COLUMNS-32){
 		dog_transmit_data(0x00);
 	}
-	char pwm_percent[3];
-	uint8_to_string(pwm_percent,calculate_pwm_percent());
+	
+	dog_transmit_data(0x0C);
+	dog_transmit_data(0x1E);
+	dog_transmit_data(0x3F);
+	
+	for(i=0; i<24; i++){
+		dog_transmit_data(0x00);
+	}	
+	//char pwm_percent[3];
+	//uint8_to_string(pwm_percent,calculate_pwm_percent());
 	//sprintf(pwm_percent,"%3u",calculate_pwm_percent());
-	dog_write_small_string(pwm_percent);
-	dog_write_small_digit('%');
-	*/
+	//dog_write_small_string(pwm_percent);
+	//dog_write_small_digit('%');
+	//*/
 }
 /***********************************************************************************************/
 void __delay_us(uint16_t us){
@@ -607,18 +641,27 @@ void __delay_us(uint16_t us){
 	}
 }
 /***********************************************************************************************/
+void __delay_ms(uint16_t ms){
+	while(ms){
+		_delay_ms(1);
+		ms--;
+	}
+}
+
+/***********************************************************************************************/
 int main(void){
 	//init_twi_slave(calculateID("PWM"));
 	avr_init();
 	dog_clear_lcd();
+	set_sleep_mode(SLEEP_MODE_PWR_SAVE);
 	//dog_write_big_string(NEW_POSITION(0,4),"HALLO");
 	adc_value[BAT2VOLTAGE] = 428;
 	adc_value[TEMP_WATER] = 270;
 	adc_value[TEMP_FET] = 270;
 	status = OFF;
 	LED_CLR();
-	//load_pwm_values();
-	set_pwm_freq(20000);
+	load_pwm_values();
+	set_pwm_freq(pwm_freq);
 	uint8_t x = 0;
 	uint8_t y = 4;
 	uint8_t z = 0;
@@ -635,7 +678,7 @@ int main(void){
 		if(adc_read_enable){
 			read_whole_adc();				//measure all adc data
 			calculate_values();
-			
+			adc_read_enable = false;
 		}			
 		dog_home();
 		/*
@@ -645,16 +688,19 @@ int main(void){
 			 SH_PORT &= ~(1<<LED);
 		}
 		//*/
-		twi_task();
+		//twi_task();
+		
+		
 		switch (status){
 			case OFF:{
 				if(calculate_pwm_percent() > 0){
 					disable_pwm();
 					print_ign_aux();
-					//draw_bar_graph(calculate_pwm_percent());
+					draw_bar_graph(calculate_pwm_percent());
 					off = false;
 				}else if((vbat.integer*100 + vbat.fraction > 1280)){
 					print_ign_aux();
+					dog_write_empty_line(NEW_POSITION(7,0));
 					off = false;
 				}else{					
 					if(off == false){
@@ -664,14 +710,21 @@ int main(void){
 						dog_transmit(LCD_OFF);
 						off = true;
 					}
+					
 				}
+				OCR2A = 0;                       // Dummyzugriff
+				while((ASSR & (1<< OCR2AUB)));   // Warte auf das Ende des Zugriffs
+				sleep_mode();
 				break;
 			}				
 			case IGNITION_ON:{
+				off = false;
 				print_ign_aux();
+				dog_write_empty_line(NEW_POSITION(7,0));
 				break;
 			}
 			case AUX_HEAT_ON:{
+				off = false;
 				if((adc_value[TEMP_WATER] < 1016)){//check if sensor mounted!
 					if(water_temp > water_value){	//check water temp
 						if(!(SH_PIN & (1<<POT_SWITCH))){			//check if fan enabled
@@ -696,34 +749,37 @@ int main(void){
 				}
 				DISPLAY_PORT |= (1<<DISPLAY_LIGHT);
 				print_ign_aux();
+				draw_bar_graph(calculate_pwm_percent());
 				break;
 			}
 			case PROGRAM:{
+				off = false;
 				if(!(PIND & (1<<PROG_PWM_FREQ))){
-					if(!(SH_PIN & (1<<POT_SWITCH)) && prog_reset){
+					if(!(SH_PIN & (1<<POT_SWITCH))){
 						pwm_freq = (adc_value[POT_VALUE]*64);
 						set_pwm_freq(pwm_freq);
-					}else if(SH_PIN & (1<<POT_SWITCH)){
-						prog_reset = true;
+						print_pgm_freq(pwm_freq);
+					}else{
+						print_pgm_freq(0xFFFF-pwm_freq);
 					}
-					print_pgm_freq(pwm_freq);					
+										
 				}else if(!(PIND & (1<<PROG_WATER_TEMP))){//program water temp / delay value
 					if(adc_value[TEMP_WATER] > 1015){
-						if(!(SH_PIN & (1<<POT_SWITCH)) && prog_reset){
+						if(!(SH_PIN & (1<<POT_SWITCH))){
 							delay_value = adc_value[POT_VALUE] / 17;
 							if(delay_value > 60) delay_value = 60;
 							if(delay_value < 0) delay_value = 0;
+							print_pgm_delay(delay_value);
 						}else{
-							prog_reset = true;
+							print_pgm_delay(0xFFFF-delay_value);
 						}
-						print_pgm_delay(delay_value);
+						
 					}else{
-						if(!(SH_PIN & (1<<POT_SWITCH)) && prog_reset){
+						if(!(SH_PIN & (1<<POT_SWITCH))){
 							water_value = adc_value[POT_VALUE] / 10;
 							if(water_value > 102) water_value = 102;
 							if(water_value < 0) water_value = 0;
-						}else{
-							prog_reset = true;
+							
 						}
 						print_pgm_water_val(water_value);
 					}
@@ -731,6 +787,7 @@ int main(void){
 				break;
 			}
 			case ERROR:{	// any error occured -> stop fan immeately!
+				off = false;
 				print_error();
 				break;
 			}
@@ -764,18 +821,19 @@ ISR(TIMER0_COMPA_vect){
 	}
 }
 /***********************************************************************************************/
-ISR(TIMER2_COMPA_vect){
-	t2_val++;
-	if(t2_val >= 16){
+ISR(TIMER2_OVF_vect){
+	//t2_val++;
+	//if(t2_val >= 64){
 		adc_read_enable = true;
-		t2_val = 0;
+		//t2_val = 0;
 		_t2_val++;
 		if(_t2_val >= 2){
 			second++;
+			_t2_val = 0;
 			if(second >= 3666){
 				second = 0;
 			}
 		}
-	}		
+	//}		
 }
 /***********************************************************************************************/

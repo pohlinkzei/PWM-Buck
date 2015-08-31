@@ -77,7 +77,7 @@ void dog_home(void){
 void dog_write_small_digit(uint8_t digit){
 	uint8_t i,data;
 #ifdef CHARSET_ASCII
-	digit -= 0x20;
+	//digit -= 0x20;
 #endif	
 	for(i=0;i<6;i++){
 		data = pgm_read_byte(&(font6x8[digit][i]));
@@ -173,7 +173,7 @@ void dog_write_numbered_bat_symbol(position_t position, uint8_t num){
 void dog_write_mid_digit(position_t position,uint8_t digit){
 	uint8_t i;
 #ifdef CHARSET_ASCII
-	digit -= 0x20;
+	//digit -= 0x20;
 #endif
 	uint8_t temp[3][8] = {{0,},};
 	position.row = position.row % 8;
@@ -377,7 +377,7 @@ void dog_write_empty_line(position_t p){
 void dog_write_big_digit(position_t position,uint8_t digit){
 	uint8_t i = 0;
 #ifdef CHARSET_ASCII
-	digit -= 0x20;
+	//digit -= 0x20;
 #endif
 	uint8_t temp[3][12] = {{0,},};
 	position.row = position.row % 8;
@@ -465,7 +465,7 @@ void dog_write_tiny_string(char *string){
 void dog_write_tiny_digit(uint8_t digit){
 	uint8_t i,data;
 #ifdef CHARSET_ASCII
-	digit -= 0x20;
+	//digit -= 0x20;
 #endif
 	for(i=0;i<4;i++){
 		data = pgm_read_byte(&(font4x6[digit][i]));
