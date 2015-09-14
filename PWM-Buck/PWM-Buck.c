@@ -57,6 +57,7 @@
 
  volatile bool prog_reset = false;
  volatile bool off = false;
+ volatile bool timer1_disabled = true;
 
 char centigrade[2] = {0x18,'C'};//"\x18" "C    ";
 char batsym[2] = {0x01,0x02};//SYM_BAT1 SYM_BAT2;
@@ -277,7 +278,7 @@ void avr_init(void){
 }
 /***********************************************************************************************/
 voltage_value_t calculate_voltage(uint16_t adc){
-	uint32_t voltage32 = (719 * (uint32_t) adc);
+	uint32_t voltage32 = (716 * (uint32_t) adc);
 	voltage32 = voltage32 / 256;
 	voltage_value_t voltage;
 	voltage.integer = voltage32 / 100;
@@ -563,27 +564,27 @@ void print_error(){
 	 *       FT 125 °C       
 	 */
 	//			   0123456789012345678901
-	char str0[] = "          V ";
+	char str0[] = "        V   ";
 	char tfet_s[3] = {0,};
 	sprint_temperature(tfet_s, fet_temp);
 	sprint_voltage(vbat_s,vbat);
 	dog_set_page(0);
-	str0[0] = batsym[1];
-	str0[1] = batsym[2];
-	stringcopy(vbat_s,&str0[3],5);
+	str0[0] = batsym[0];
+	str0[1] = batsym[1];
+	stringcopy(vbat_s,&str0[2],5);
 	dog_write_big_string(NEW_POSITION(0,0),str0);
 	dog_write_big_string(NEW_POSITION(2,0),"  FEHLER   ");
 	dog_write_big_string(NEW_POSITION(4,0),"  FEHLER   ");
 	dog_set_page(3);
-	for(i=6;i<16;i++){
+	for(i=6;i<11;i++){
 		str0[i] = ' ';
 	}
-	str0[6] = tfetsym[0];
-	str0[7] = tfetsym[1];
-	str0[8] = ' ';
-	stringcopy(tfet_s, &str0[9],3);
-	str0[13] = centigrade[0];
-	str0[14] = centigrade[1];
+	str0[0] = tfetsym[0];
+	str0[1] = tfetsym[1];
+	str0[2] = ' ';
+	stringcopy(tfet_s, &str0[3],3);
+	str0[7] = centigrade[0];
+	str0[8] = centigrade[1];
 	dog_write_big_string(NEW_POSITION(6,0),str0);
 	//*/
 }
@@ -709,12 +710,14 @@ int main(void){
 						dog_clear_lcd();
 						dog_transmit(LCD_OFF);
 						off = true;
+					}else{
+						OCR2A = 0;                       // Dummyzugriff
+						while((ASSR & (1<< OCR2AUB)));   // Warte auf das Ende des Zugriffs
+						sleep_mode();
 					}
 					
 				}
-				OCR2A = 0;                       // Dummyzugriff
-				while((ASSR & (1<< OCR2AUB)));   // Warte auf das Ende des Zugriffs
-				sleep_mode();
+				
 				break;
 			}				
 			case IGNITION_ON:{
@@ -758,10 +761,11 @@ int main(void){
 					if(!(SH_PIN & (1<<POT_SWITCH))){
 						pwm_freq = (adc_value[POT_VALUE]*64);
 						set_pwm_freq(pwm_freq);
-						print_pgm_freq(pwm_freq);
-					}else{
-						print_pgm_freq(0xFFFF-pwm_freq);
+					//	print_pgm_freq(pwm_freq);
+					//}else{
+					//	print_pgm_freq(0xFFFF-pwm_freq);
 					}
+					print_pgm_freq(pwm_freq);
 										
 				}else if(!(PIND & (1<<PROG_WATER_TEMP))){//program water temp / delay value
 					if(adc_value[TEMP_WATER] > 1015){
@@ -769,10 +773,11 @@ int main(void){
 							delay_value = adc_value[POT_VALUE] / 17;
 							if(delay_value > 60) delay_value = 60;
 							if(delay_value < 0) delay_value = 0;
-							print_pgm_delay(delay_value);
-						}else{
-							print_pgm_delay(0xFFFF-delay_value);
-						}
+						}							
+						print_pgm_delay(delay_value);
+						//}else{
+						//	print_pgm_delay(0xFFFF-delay_value);
+						//}
 						
 					}else{
 						if(!(SH_PIN & (1<<POT_SWITCH))){
@@ -788,8 +793,22 @@ int main(void){
 			}
 			case ERROR:{	// any error occured -> stop fan immeately!
 				off = false;
+				set_pwm(0);
+				pwm_value_aux = 0;
 				print_error();
 				break;
+			}
+		}
+		if(status == AUX_HEAT_ON){
+			if(timer1_disabled){
+				timer1_init();
+				set_pwm_freq(pwm_freq);
+				timer1_disabled = false;
+			}
+		}else{
+			if(!timer1_disabled && off){
+				timer1_disable();
+				timer1_disabled = true;
 			}
 		}
 		//*/

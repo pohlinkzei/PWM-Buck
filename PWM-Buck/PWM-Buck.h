@@ -49,7 +49,7 @@
 #define LED			PD4
 #define PWM			PB1
 
-#define FILTER_VALUE 0 //must be between 0 and 6
+#define FILTER_VALUE 2 //must be between 0 and 6
 
 #define SYM_BAT1 "\x01"
 #define SYM_BAT2 "\x02"
