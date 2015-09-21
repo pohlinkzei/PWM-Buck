@@ -682,15 +682,8 @@ int main(void){
 			adc_read_enable = false;
 		}			
 		dog_home();
-		/*
-		if(!(PIND & (1<<PROG_PWM_FREQ))){
-			 SH_PORT |= (1<<LED);
-			 dog_init();
-			 SH_PORT &= ~(1<<LED);
-		}
-		//*/
-		//twi_task();
 		
+		//twi_task();
 		
 		switch (status){
 			case OFF:{
@@ -711,6 +704,9 @@ int main(void){
 						dog_transmit(LCD_OFF);
 						off = true;
 					}else{
+						timer1_disable();
+						timer1_disabled = true;
+						
 						OCR2A = 0;                       // Dummyzugriff
 						while((ASSR & (1<< OCR2AUB)));   // Warte auf das Ende des Zugriffs
 						sleep_mode();
@@ -721,6 +717,7 @@ int main(void){
 				break;
 			}				
 			case IGNITION_ON:{
+				DISPLAY_PORT &= ~(1<<DISPLAY_LIGHT);
 				off = false;
 				print_ign_aux();
 				dog_write_empty_line(NEW_POSITION(7,0));
@@ -756,6 +753,7 @@ int main(void){
 				break;
 			}
 			case PROGRAM:{
+				DISPLAY_PORT |= (1<<DISPLAY_LIGHT);
 				off = false;
 				if(!(PIND & (1<<PROG_PWM_FREQ))){
 					if(!(SH_PIN & (1<<POT_SWITCH))){
@@ -792,6 +790,7 @@ int main(void){
 				break;
 			}
 			case ERROR:{	// any error occured -> stop fan immeately!
+				DISPLAY_PORT &= ~(1<<DISPLAY_LIGHT);
 				off = false;
 				set_pwm(0);
 				pwm_value_aux = 0;
