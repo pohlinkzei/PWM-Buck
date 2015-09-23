@@ -25,11 +25,12 @@ typedef struct txdata {
 	uint8_t fet_temp;
 }tx_t;
 
-rx_t rx;
-tx_t tx;
+rx_t *rx;// = (rx_t*) malloc(sizeof(rx_t));
+tx_t *tx;// = (tx_t*) malloc(sizeof(tx_t));
 
  
-void twi_task(void);
+uint8_t twi_rx_task(void);
+uint8_t twi_tx_task(void);
 uint8_t calculateCRC8(uint8_t crc, volatile uint8_t* data, uint8_t len);
 uint8_t calculateID(char* name);
 

@@ -493,13 +493,11 @@ void print_pgm_delay(uint8_t delay_val){
 }
 /***********************************************************************************************/
 void print_pgm_freq(uint16_t freq){
-	//sprintf(debug,"PROGRAM PWMFREQ %i    ",pwm_freq);
-	//dog_write_small_string(debug);
 	//					  012345678901234
 	dog_write_mid_string(NEW__POSITION(0,4,3)," PWM-Frequenz  ");
 						//  1234567890123456789012
-	//char str1[5] = {0,};
-		//			01234567890
+	
+	//			  01234567890
 	char str[] = "f:     Hz ";	//sprintf(str1," f: %5dHz  ",pwm_freq);
 	uint16_to_string(&str[3],freq);
 	//stringcopy(str1,&str[4],5);
@@ -651,31 +649,26 @@ void __delay_ms(uint16_t ms){
 
 /***********************************************************************************************/
 int main(void){
-	//init_twi_slave(calculateID("PWM"));
+	init_twi_slave(calculateID("PWM"));
 	avr_init();
 	dog_clear_lcd();
 	set_sleep_mode(SLEEP_MODE_PWR_SAVE);
-	//dog_write_big_string(NEW_POSITION(0,4),"HALLO");
 	adc_value[BAT2VOLTAGE] = 428;
 	adc_value[TEMP_WATER] = 270;
 	adc_value[TEMP_FET] = 270;
+	rx = (rx_t*) malloc(sizeof(rx_t));
+	tx = (tx_t*) malloc(sizeof(tx_t));
 	status = OFF;
 	LED_CLR();
 	load_pwm_values();
 	set_pwm_freq(pwm_freq);
-	uint8_t x = 0;
-	uint8_t y = 4;
-	uint8_t z = 0;
 	set_pwm(0);
 	dog_clear_lcd();
 	while(1){
 		noop();
-
 		# warning: "TODO: sleep-timer, displaybeleuchtung,..."
-
 		status_t status_old = status;
 		status = get_status(status_old);
-		
 		if(adc_read_enable){
 			read_whole_adc();				//measure all adc data
 			calculate_values();
@@ -683,7 +676,15 @@ int main(void){
 		}			
 		dog_home();
 		
-		//twi_task();
+		if(0==twi_rx_task()){
+			// we got new data via twi
+			// save new values to variables
+			pwm_freq = rx->pwm_freq;
+			set_pwm_freq(pwm_freq);
+			delay_value = rx->time_value;
+			water_value = rx->water_value;
+		}
+		
 		
 		switch (status){
 			case OFF:{
@@ -811,6 +812,8 @@ int main(void){
 			}
 		}
 		//*/
+		// make sure all values are ready to send to the master
+		twi_tx_task();
 	}
 }
 /***********************************************************************************************/
