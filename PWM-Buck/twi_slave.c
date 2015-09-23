@@ -1,8 +1,7 @@
 /*
- * twi.c
+ * twislave.c
  *
- * Created: 20.08.2014 14:01:40
- *  Author: Hubert
+ *  Author: uwegw
  */ 
 
 #include <util/twi.h> 	    //enthält z.B. die Bezeichnungen für die Statuscodes in TWSR
@@ -22,7 +21,7 @@ Parameter adr: gewünschte Slave-Adresse
 */
 void init_twi_slave(uint8_t adr)
 {
-        TWAR= adr; //Adresse setzen
+    TWAR= adr; //Adresse setzen
 	TWCR &= ~(1<<TWSTA)|(1<<TWSTO);
 	TWCR|= (1<<TWEA) | (1<<TWEN)|(1<<TWIE); 	
 	buffer_adr=0xFF;  
@@ -48,14 +47,16 @@ ein Statuscode, anhand dessen die Situation festgestellt werden kann.
 */
 ISR (TWI_vect)  {
 	uint8_t data=0;
-
+	i2crxready = 0;
 	switch (TW_STATUS) //TWI-Statusregister prüfen und nötige Aktion bestimmen 
 	{
 
 	// Slave Receiver 
-
+	//case TW_GCALL_ACK:
+		
 	case TW_SR_SLA_ACK: // 0x60 Slave Receiver, Slave wurde adressiert	
 		TWCR_ACK; // nächstes Datenbyte empfangen, ACK danach senden
+		LEDPORT ^= (1<<LED);
 		buffer_adr=0xFF; //Bufferposition ist undefiniert
 	break;
 	
@@ -66,11 +67,11 @@ ISR (TWI_vect)  {
 				//Kontrolle ob gewünschte Adresse im erlaubten bereich
 				if(data<i2c_buffer_size+1)
 					{
-						buffer_adr= data; //Bufferposition wie adressiert setzen
+						buffer_adr = data; //Bufferposition wie adressiert setzen
 					}
 				else
 					{
-						buffer_adr=0; //Adresse auf Null setzen. Ist das sinnvoll? TO DO!
+						buffer_adr=0xFF; //Adresse auf 0xFF setzen. Ist das sinnvoll? TO DO!
 					}				
 				TWCR_ACK;	// nächstes Datenbyte empfangen, ACK danach, um nächstes Byte anzufordern
 			}
@@ -92,7 +93,6 @@ ISR (TWI_vect)  {
 
 	case TW_ST_SLA_ACK: //0xA8 Slave wurde im Lesemodus adressiert und hat ein ACK zurückgegeben.
 		//Hier steht kein break! Es wird also der folgende Code ebenfalls ausgeführt!
-	
 	case TW_ST_DATA_ACK: //0xB8 Slave Transmitter, Daten wurden angefordert
 
 		if (buffer_adr == 0xFF) //zuvor keine Leseadresse angegeben! 
@@ -108,15 +108,20 @@ ISR (TWI_vect)  {
 		else
 			{
 				TWDR=0; //Kein Daten mehr im Buffer
+				buffer_adr = 0xFF;
 			}
 		TWCR_ACK;
 	break;
 	case TW_SR_STOP:
+		i2crxready = 1;
+	case TW_SR_GCALL_ACK:
 				TWCR_ACK;
+				buffer_adr = 0xFF;
 			break;
 	case TW_ST_DATA_NACK: // 0xC0 Keine Daten mehr gefordert 
 	case TW_SR_DATA_NACK: // 0x88 
 	case TW_ST_LAST_DATA: // 0xC8  Last data byte in TWDR has been transmitted (TWEA = “0”); ACK has been received
+	
 	default: 	
 		TWCR_RESET;
 	break;

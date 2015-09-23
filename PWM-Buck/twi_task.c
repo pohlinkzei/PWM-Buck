@@ -6,66 +6,142 @@
  */ 
 
 #include <avr/io.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "twi_slave.h"
+#include "dog_display.h"
 #include "twi_task.h"
-#include "PWM-Buck.h"
+#include "TWITest.h"
+
 
 
 extern volatile uint8_t i2crxdata[i2c_buffer_size]; 
 extern volatile uint8_t i2ctxdata[i2c_buffer_size]; 
 extern volatile uint8_t buffer_adr;
+extern volatile uint8_t i2crxready;
 
-
-
-extern volatile uint16_t pwm_freq;
-extern volatile uint16_t pwm_value_aux;
-extern volatile uint8_t pwm_percent;
-extern volatile uint8_t water_value;
-extern volatile uint8_t delay_value;
-extern volatile int16_t water_temp;
-extern volatile int16_t fet_temp;
-extern volatile voltage_value_t vbat;
 
 uint8_t calculateID(char* name){
 	//calculate an ID from the first 3 Letter of its name
 	uint8_t ID;
 	ID = (name[0]-48) * 3 + (name[1]-48) * 2 + (name[2]-48);
-	ID >> 2;
+	ID = (ID >> 2);
 	return ID;
 }
 
+
+uint8_t crc8(uint8_t crc, uint8_t data){
+	uint8_t i, _data;
+	_data = crc ^ data;
+	for(i=0; i<8; i++){
+		if((_data & 0x80) != 0){
+			_data <<= 1;
+			_data ^= 0x07;
+		}else{
+			_data <<= 1;
+		}
+	}
+	return _data;
+}
+
+uint8_t calculateCRC8(uint8_t crc, volatile uint8_t* data, uint8_t len){
+	while(len>0){
+		crc = crc8(crc, *data++);
+	}
+	return crc;
+}
+
+uint8_t serialize_rxdata(rx_t rx, uint8_t size, volatile uint8_t buffer[size]){
+	if(sizeof(buffer) < size || size != sizeof(rx)){
+		return 0;
+	}
+	buffer[0] = (uint8_t) ((rx.pwm_freq & 0xFF00) >> 8);
+	buffer[1] = (uint8_t) (rx.pwm_freq & 0x00FF);
+	buffer[2] = rx.cal_temperature;
+	buffer[3] = rx.cal_voltage;
+	buffer[4] = rx.water_value;
+	buffer[5] = rx.time_value;
+	return 1;
+}
+
+uint8_t deserialize_rxdata(rx_t rx, uint8_t size, volatile uint8_t buffer[size]){
+	if(sizeof(buffer) < size || size != sizeof(rx)){
+		return 0;
+	}
+	rx.pwm_freq = ((uint16_t) (buffer[0]) << 8) + buffer[1];
+	rx.cal_temperature = buffer[2];
+	rx.cal_voltage = buffer[3];
+	rx.water_value = buffer[4];
+	rx.time_value = buffer[5];
+	return 1;
+}
+
+uint8_t serialize_txdata(tx_t tx, uint8_t size, volatile uint8_t buffer[size]){
+	if(sizeof(buffer) < size || size != sizeof(tx)){
+		return 0;
+	}
+	buffer[0] = (uint8_t) ((tx.pwm_freq & 0xFF00) >> 8);
+	buffer[1] = (uint8_t) (tx.pwm_freq & 0x00FF);
+	buffer[2] = tx.cal_temperature;
+	buffer[3] = tx.cal_voltage;
+	buffer[4] = tx.water_value;
+	buffer[5] = tx.time_value;
+	buffer[6] = (uint8_t) ((tx.vbat & 0xFF00) >> 8);
+	buffer[7] = (uint8_t) (tx.vbat & 0x00FF);
+	buffer[8] = tx.water_temp;
+	buffer[9] = tx.fet_temp;
+	return 1;
+}
+/*
+uint8_t deserialize_txdata(tx_t tx, uint8_t size, volatile uint8_t buffer[size]){
+	if(sizeof(buffer) < size || size != sizeof(tx)){
+		return 0;
+	}
+	tx.pwm_freq = ((uint16_t) (buffer[0]) << 8) + buffer[1];
+	tx.cal_temperature = buffer[2];
+	tx.cal_voltage = buffer[3];
+	tx.water_value = buffer[4];
+	tx.time_value = buffer[5];
+	tx.vbat = ((uint16_t) (buffer[6]) << 8) + buffer[7];
+	tx.water_temp = buffer[8];
+	tx.fet_temp = buffer[9];
+	return 1;
+}
+//*/
 void twi_task(void){
-	if(buffer_adr == 0){
-		uint8_t i;
-		//receiver
-		pwm_freq = ((i2crxdata[FREQUENCY] << 8) + i2crxdata[FREQUENCY + 1]);
-		//water_value
-		water_value = i2ctxdata[WATER_VAL];
-		//delay_value
-		delay_value = i2ctxdata[DELAY_VAL];
-		//pwm_percent
+	uint8_t i;
+	uint8_t rx_size = sizeof(rx);
+	uint8_t tx_size = sizeof(tx);
+	// check rx crc
+	uint8_t rx_crc = calculateCRC8(CRC_POLYNOME, i2crxdata, rx_size);
+	if(rx_crc == i2crxdata[rx_size]){
+		//crc is correct
+		uint8_t ser_rx[rx_size];
 		
-		//transmitter
-		//pwm_freq
-		i2ctxdata[FREQUENCY + 1] = (uint8_t) (pwm_freq & 0x00FF);
-		i2ctxdata[FREQUENCY]     = (uint8_t) ((pwm_freq & 0xFF00) >> 8);
-		//water_value
-		i2ctxdata[WATER_VAL] = water_value;
-		//delay_value
-		i2ctxdata[DELAY_VAL] = delay_value;
-		//status
-		i2ctxdata[STATUS] = 0x00;
-		//pwm_percent
-		i2ctxdata[PWM_PERCENT] = pwm_percent;
-		//water_temp
-		i2ctxdata[T_WATER]     = (uint8_t) ((water_temp & 0xFF00) >> 8);
-		i2ctxdata[T_WATER + 1] = (uint8_t) (water_temp & 0x00FF);
-		//fet_temp
-		i2ctxdata[T_FET]     = (uint8_t) ((fet_temp & 0xFF00) >> 8);
-		i2ctxdata[T_FET + 1] = (uint8_t) (fet_temp & 0x00FF);
-		//vbat1
-		i2ctxdata[V_BAT] = vbat.integer;
-		i2ctxdata[V_BAT + 1] = vbat.fraction;
+		if(deserialize_rxdata(rx, sizeof(rx), ser_rx)){
+			// check if new data differs from current data object
+			uint8_t ok = 1;
+			for(i=0; i<rx_size; i++){
+				if(i2crxdata[i] != ser_rx[i]) ok = 0;
+			}
+			if(ok){
+				//we got new data -> replace the old object 
+				if(!serialize_rxdata(rx, rx_size, i2crxdata)){
+					// we got an error
+				}else{
+					// everything went fine -> clean the buffer
+					for(i=0; i< i2c_buffer_size; i++){
+						i2crxdata[i] = 0;
+					}
+				}
+			}
+		}
+	}// end of rx data procession
 		
-	}		
+	// serialize tx object
+	if(serialize_txdata(tx, tx_size, i2ctxdata)){
+		//calculate CRC and append to i2ctxdata
+		i2ctxdata[tx_size] = calculateCRC8(CRC_POLYNOME, i2ctxdata, tx_size);
+	}
 }

@@ -4,18 +4,33 @@
 #include <avr/io.h>
 #include "twi_slave.h"
 
+#define CRC_POLYNOME 0xAB
 
-#define PWM_VALUE 0//..31
-#define FREQUENCY 32//33
-#define WATER_VAL 34
-#define DELAY_VAL 35
-#define STATUS	  36
-#define PWM_PERCENT 37
-#define T_FET 38
-#define T_WATER 40
-#define V_BAT	42//43
+typedef struct rxdata {
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
+}rx_t;
+
+typedef struct txdata {
+	uint16_t pwm_freq;
+	uint8_t cal_temperature;
+	uint8_t cal_voltage;
+	uint8_t water_value;
+	uint8_t time_value;
+	uint16_t vbat;
+	uint8_t water_temp;
+	uint8_t fet_temp;
+}tx_t;
+
+rx_t rx;
+tx_t tx;
 
  
 void twi_task(void);
+uint8_t calculateCRC8(uint8_t crc, volatile uint8_t* data, uint8_t len);
 uint8_t calculateID(char* name);
+
 #endif

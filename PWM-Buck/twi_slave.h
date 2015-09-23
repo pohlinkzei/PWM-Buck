@@ -5,6 +5,9 @@
 #include <avr/interrupt.h>  //dient zur behandlung der Interrupts
 #include <stdint.h> 		    //definiert den Datentyp uint8_t
 
+#define LED		PD4
+#define LEDPORT PORTD
+#define LEDDDR DDRD
 
 /** 
  *  @defgroup twislave TWI-Slave
@@ -46,7 +49,7 @@
 
 //%%%%%%%% von Benutzer konfigurierbare Einstellungen %%%%%%%%
 /**@brief Groesse des Buffers in Byte (2..254) */
-#define i2c_buffer_size 44// I2C_REG_ANZAHL 254 Hier kann eingestellt werden wieviele Register ausgegeben werden
+#define i2c_buffer_size 10// I2C_REG_ANZAHL 254 Hier kann eingestellt werden wieviele Register ausgegeben werden
 
 
 //%%%%%%%% Globale Variablen, die vom Hauptprogramm genutzt werden %%%%%%%%
@@ -57,7 +60,7 @@
 */
 volatile uint8_t i2ctxdata[i2c_buffer_size];
 volatile uint8_t i2crxdata[i2c_buffer_size];
-
+volatile uint8_t i2crxready;
 
 /**@brief Initaliserung des TWI-Inteface. Muss zu Beginn aufgerufen werden, sowie bei einem Wechsel der Slave Adresse
  * @param adr gewuenschte Slave-Adresse */
