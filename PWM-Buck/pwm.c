@@ -111,8 +111,16 @@ uint16_t set_pwm(uint16_t duty){ //0<duty<1023
 		duty = 1023;
 	}
 	if(duty==0){
+		if(DDRB & (1<<PWM)){
+			DDRB &= ~(1<<PWM);
+			PORTB |= (1<<PWM);
+		}
 		pwm_running = false;
 	}else{
+		if(!(DDRB & (1<<PWM))){
+			DDRB |= (1<<PWM);
+			PORTB &= ~(1<<PWM);
+		}
 		pwm_running = true;
 	}
 	uint32_t ocr_temp = duty * (uint32_t) ICR1 + duty;
