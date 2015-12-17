@@ -14,7 +14,7 @@
 #include <avr/eeprom.h>
 #include "PWM-Buck.h"
 
-#define PWM_FILTER_VALUE 5
+#define PWM_FILTER_VALUE 4
 
 
 bool test_eeprom_string(uint16_t* str,uint8_t length);

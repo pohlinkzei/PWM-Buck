@@ -78,8 +78,6 @@ void save_pwm_values(void){ // write pwm_values into eeprom if they changed ;)
 }
 /***********************************************************************************************/
 void load_pwm_values(void){
-	uint8_t i;
-	
 	eeprom_busy_wait();
 	uint16_t temp_pwm_freq = eeprom_read_word(&ee_pwm_freq);
 	if(temp_pwm_freq<32768){
@@ -111,16 +109,18 @@ uint16_t set_pwm(uint16_t duty){ //0<duty<1023
 		duty = 1023;
 	}
 	if(duty==0){
+		//*
 		if(DDRB & (1<<PWM)){
 			DDRB &= ~(1<<PWM);
-			PORTB |= (1<<PWM);
 		}
+		//*/
 		pwm_running = false;
 	}else{
+		//*
 		if(!(DDRB & (1<<PWM))){
 			DDRB |= (1<<PWM);
-			PORTB &= ~(1<<PWM);
 		}
+		//*/
 		pwm_running = true;
 	}
 	uint32_t ocr_temp = duty * (uint32_t) ICR1 + duty;

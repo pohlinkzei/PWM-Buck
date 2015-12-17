@@ -14,7 +14,7 @@
 
 #include <avr/io.h>
 #include <stdbool.h>
-//#include <stdlib.h>
+#include <stdlib.h>
 #include <avr/eeprom.h>
 #include "dog_display.h"
 #include "PWM-Buck.h"
@@ -71,6 +71,8 @@ char twatersym[2] = {0x05,0x06};//SYM_WTEMP1 SYM_WTEMP2;
  volatile status_t status = OFF;
  volatile uint8_t led_count = 0;
  volatile bool adc_read_enable = false;
+ 
+ void __delay_ms(uint16_t ms);
   /***********************************************************************************************/
  /* misc functions																				*/
 /***********************************************************************************************/
@@ -122,8 +124,9 @@ status_t get_status(status_t old){
 	if(SH_PIN & (1<<AUX_HEAT) && !(SH_PIN & (1<<IGNITION))) status = AUX_HEAT_ON;
 	if(!(PIND & (1<<PROG_PWM_FREQ))  ||  !(PIND & (1<<PROG_WATER_TEMP))) status = PROGRAM;
 	if((((calculate_voltage(adc_value[BAT2VOLTAGE]).integer * 100 + calculate_voltage(adc_value[BAT2VOLTAGE]).fraction) < (MIN_BAT_VOLTAGE)) && (SH_PIN & (1<<AUX_HEAT) && !(SH_PIN & (1<<IGNITION)))) || (calculate_temperature(adc_value[TEMP_FET]) > MAX_FET_TEMP)) status = ERROR;
-	if((old == ERROR) && (calculate_temperature(adc_value[TEMP_FET]) > (MAX_FET_TEMP - 25))) status = ERROR;
-	if((old == ERROR) /*&& ((SH_PIN & (1<<AUX_HEAT) && (!(SH_PIN & (1<<IGNITION)))))*/ && ((calculate_voltage(adc_value[BAT2VOLTAGE]).integer * 100 + calculate_voltage(adc_value[BAT2VOLTAGE]).fraction) < (1250))) status = ERROR;
+	if((old == ERROR) && (calculate_temperature(adc_value[TEMP_FET]) > (MAX_FET_TEMP - 50))) status = ERROR;
+	if((old == ERROR) && ((SH_PIN & (1<<AUX_HEAT) && (!(SH_PIN & (1<<IGNITION))))) && ((calculate_voltage(adc_value[BAT2VOLTAGE]).integer * 100 + calculate_voltage(adc_value[BAT2VOLTAGE]).fraction) < (1250))) status = ERROR;
+	if((old == ERROR) && ((SH_PIN & (1<<AUX_HEAT) && (!(SH_PIN & (1<<IGNITION))))) && !(SH_PIN & (1<<POT_SWITCH))) status = ERROR;
 	if(old != status ){
 		led_set(status);
 		if(status == AUX_HEAT_ON){
@@ -229,24 +232,14 @@ void timer1_disable(void){
 	//TCCR1B |= (1<<WGM13) | (1<<WGM12);// | (1<<WGM10);	// Mode 15		
 }
 /***********************************************************************************************/
-void timer2_init(void){//timer for adc 
-	
+void timer2_init(void){ 
 	ACSR = 0x80;
-	
-	// Timer2 konfigurieren
-	
 	ASSR  = (1<< AS2);              
 	__delay_ms(1000);               
 	TCCR2B  = (1<<CS22) /*| (1<<CS21) |(1<<CS20) */;              
 	while((ASSR & (1<< TCR2AUB)));   
 	TIFR2   = (1<<TOV2);             
 	TIMSK2 |= (1<<TOIE2);
-	/*
-	TCCR2A |= (1<<WGM21);//ctc
-	TCCR2B |= (1<<CS22) | (1<<CS21) | (1<<CS20); //prescaler:1024
-	TIMSK2 |= (1<<OCIE2A);
-	OCR2A = 250;
-	*/
 }
 /***********************************************************************************************/
 void adc_init(void){
@@ -588,13 +581,21 @@ void print_error(){
 }
 /***********************************************************************************************/
 void draw_bar_graph(uint8_t value){ // draw a per cent bar graph at the buttom line
-	
+//	char debug[22];
+	 uint8_t i;
+// 	for(i=0;i<22;i++) debug[i] = 0x20;
+// 	uint16_to_string(debug, adc_value[POT_VALUE]);
+// 	uint16_to_string(&debug[6], pwm_value_aux);
+// 	uint16_to_string(&debug[12], value);
+// 	uint16_to_string(&debug[18], ICR1);
 	dog_set_position(ROWS - 1,0);
+//	dog_write_small_string(debug);
+//	return;
 	dog_transmit_data(0x00);
 	dog_transmit_data(0x00);
 	dog_transmit_data(0x00);
 	dog_transmit_data(0x00);
-	uint8_t i;
+	
 	//paint a fan
 	uint8_t fan[8] = {0x00,0x39,0x1B,0x0F,0x3C,0x36,0x27,0x00};
 	
@@ -649,6 +650,7 @@ void __delay_ms(uint16_t ms){
 
 /***********************************************************************************************/
 int main(void){
+	uint8_t i2c_tx_ready = 0;
 	init_twi_slave(calculateID("PWM"));
 	avr_init();
 	dog_clear_lcd();
@@ -675,7 +677,7 @@ int main(void){
 			adc_read_enable = false;
 		}			
 		dog_home();
-		
+		//*
 		if(0==twi_rx_task()){
 			// we got new data via twi
 			// save new values to variables
@@ -683,8 +685,9 @@ int main(void){
 			set_pwm_freq(pwm_freq);
 			delay_value = rx->time_value;
 			water_value = rx->water_value;
+			i2c_tx_ready = 1;
 		}
-		
+		//*/
 		
 		switch (status){
 			case OFF:{
@@ -705,16 +708,13 @@ int main(void){
 						dog_transmit(LCD_OFF);
 						off = true;
 					}else{
-						timer1_disable();
-						timer1_disabled = true;
-						
 						OCR2A = 0;                       // Dummyzugriff
 						while((ASSR & (1<< OCR2AUB)));   // Warte auf das Ende des Zugriffs
 						sleep_mode();
 					}
-					
+			
 				}
-				
+		
 				break;
 			}				
 			case IGNITION_ON:{
@@ -731,7 +731,7 @@ int main(void){
 						if(!(SH_PIN & (1<<POT_SWITCH))){			//check if fan enabled
 							pwm_value_aux = adc_value[POT_VALUE];	//start fan
 							enable_pwm(pwm_value_aux);
-															
+													
 						}else{
 							disable_pwm();						//stop fan
 						}
@@ -760,9 +760,6 @@ int main(void){
 					if(!(SH_PIN & (1<<POT_SWITCH))){
 						pwm_freq = (adc_value[POT_VALUE]*64);
 						set_pwm_freq(pwm_freq);
-					//	print_pgm_freq(pwm_freq);
-					//}else{
-					//	print_pgm_freq(0xFFFF-pwm_freq);
 					}
 					print_pgm_freq(pwm_freq);
 										
@@ -793,27 +790,18 @@ int main(void){
 			case ERROR:{	// any error occured -> stop fan immeately!
 				DISPLAY_PORT &= ~(1<<DISPLAY_LIGHT);
 				off = false;
+				adc_value[POT_VALUE] = 0;
 				set_pwm(0);
 				pwm_value_aux = 0;
 				print_error();
 				break;
 			}
 		}
-		if(status == AUX_HEAT_ON){
-			if(timer1_disabled){
-				timer1_init();
-				set_pwm_freq(pwm_freq);
-				timer1_disabled = false;
-			}
-		}else{
-			if(!timer1_disabled && off){
-				timer1_disable();
-				timer1_disabled = true;
-			}
-		}
 		//*/
 		// make sure all values are ready to send to the master
-		twi_tx_task();
+		if(i2c_tx_ready){
+			twi_tx_task();
+		}
 	}
 }
 /***********************************************************************************************/

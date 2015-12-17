@@ -109,6 +109,8 @@ uint8_t deserialize_txdata(tx_t tx, uint8_t size, volatile uint8_t buffer[size])
 }
 //*/
 uint8_t twi_rx_task(void){
+	
+	if(!i2crxready) return 1;
 	uint8_t i;
 	uint8_t rx_size = sizeof(rx);
 	// check rx crc

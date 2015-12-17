@@ -10,7 +10,7 @@
 #define CHARSET_ASCII  // uncomment to use a reduced charset to save memory
 //#define CHARSET_SYMBOLS //  
 //#define USE_TINY_FONT	// uncomment to use tiny font to save memory
-//#define USE_SMALL_FONT	// uncomment to use small font to save memory
+#define USE_SMALL_FONT	// uncomment to use small font to save memory
 #define USE_MID_FONT	// uncomment to use mid to save memory
 #define USE_BIG_FONT	// uncomment to use big to save memory
 //*
