@@ -25,9 +25,10 @@ typedef struct txdata {
 	uint8_t fet_temp;
 }tx_t;
 
-rx_t *rx;// = (rx_t*) malloc(sizeof(rx_t));
-tx_t *tx;// = (tx_t*) malloc(sizeof(tx_t));
+rx_t rx;
+tx_t tx;
 
+uint8_t deb;
  
 uint8_t twi_rx_task(void);
 uint8_t twi_tx_task(void);

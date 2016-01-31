@@ -658,8 +658,6 @@ int main(void){
 	adc_value[BAT2VOLTAGE] = 428;
 	adc_value[TEMP_WATER] = 270;
 	adc_value[TEMP_FET] = 270;
-	rx = (rx_t*) malloc(sizeof(rx_t));
-	tx = (tx_t*) malloc(sizeof(tx_t));
 	status = OFF;
 	LED_CLR();
 	load_pwm_values();
@@ -681,10 +679,10 @@ int main(void){
 		if(0==twi_rx_task()){
 			// we got new data via twi
 			// save new values to variables
-			pwm_freq = rx->pwm_freq;
+			pwm_freq = rx.pwm_freq;
 			set_pwm_freq(pwm_freq);
-			delay_value = rx->time_value;
-			water_value = rx->water_value;
+			delay_value = rx.time_value;
+			water_value = rx.water_value;
 			i2c_tx_ready = 1;
 		}
 		//*/
@@ -800,6 +798,14 @@ int main(void){
 		//*/
 		// make sure all values are ready to send to the master
 		if(i2c_tx_ready){
+			tx.pwm_freq = pwm_freq;
+			tx.time_value = delay_value;
+			tx.water_value = water_value;
+			tx.fet_temp = fet_temp;
+			tx.water_temp = water_temp;
+			tx.vbat = vbat.integer * 100 + vbat.fraction;
+			tx.cal_temperature = 0;
+			tx.cal_voltage = 0;
 			twi_tx_task();
 		}
 	}
