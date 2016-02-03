@@ -5,6 +5,7 @@
  *  Author: Hubert
  */ 
 #include <avr/io.h>
+#include <avr/eeprom.h>
 #include "PWM-Buck.h"
 #include "pwm.h"
 
@@ -48,18 +49,15 @@ bool test_eeprom_string(uint16_t* str,uint8_t length){
 /***********************************************************************************************/
 void save_pwm_values(void){ // write pwm_values into eeprom if they changed ;)
 	//*
-	volatile uint16_t temp_freq, _freq;
-	_freq = pwm_freq;
+	volatile uint16_t temp_freq;
 	temp_freq = eeprom_read_word(&ee_pwm_freq);
 	eeprom_busy_wait();
 	//_delay_ms(5);
-	volatile uint8_t temp_water_value, _water_value;
-	_water_value = water_value;
+	volatile uint8_t temp_water_value;
 	temp_water_value = eeprom_read_byte(&ee_water_value);
 	eeprom_busy_wait();
 	//_delay_ms(5);
-	volatile uint8_t temp_delay_value, _delay_value;
-	_delay_value = delay_value;
+	volatile uint8_t temp_delay_value;
 	temp_delay_value = eeprom_read_byte(&ee_delay_value);
 	eeprom_busy_wait();
 	

@@ -256,9 +256,9 @@ void avr_init(void){
 	PORTB = 0x00;
 	PORTC = 0x00;
 	PORTD = 0x00;
+	SH_DDR |= (1<<LED);
 	DISPLAY_DDR |= (1<<PWM) | (1<<DISPLAY_LIGHT);
 	SH_PORT |= (1<<POT_SWITCH) | (1<<LED)| (1<<PROG_PWM_FREQ) /*| (1<<PROG_PWM_VALUE)*/ | (1<<PROG_WATER_TEMP);
-	
 	timer0_init();
 	timer1_init();
 	timer2_init();
@@ -266,6 +266,7 @@ void avr_init(void){
 	//connect a Dogm132 or Dogm128 to SPI-Interface
 	dog_spi_init();
 	dog_init();
+	DISPLAY_PORT &= ~(1<<DISPLAY_LIGHT);
 	sei();
 	SH_DDR |= (1<<LED);
 }
@@ -650,9 +651,11 @@ void __delay_ms(uint16_t ms){
 
 /***********************************************************************************************/
 int main(void){
-	uint8_t i2c_tx_ready = 0;
-	init_twi_slave(calculateID("PWM"));
 	avr_init();
+	uint8_t addr = calculateID("PWM");
+	init_twi_slave(addr);
+	DISPLAY_PORT &= ~(1<<DISPLAY_LIGHT);
+	_delay_ms(200);
 	dog_clear_lcd();
 	set_sleep_mode(SLEEP_MODE_PWR_SAVE);
 	adc_value[BAT2VOLTAGE] = 428;
@@ -664,9 +667,9 @@ int main(void){
 	set_pwm_freq(pwm_freq);
 	set_pwm(0);
 	dog_clear_lcd();
+	sei();
 	while(1){
 		noop();
-		# warning: "TODO: sleep-timer, displaybeleuchtung,..."
 		status_t status_old = status;
 		status = get_status(status_old);
 		if(adc_read_enable){
@@ -675,17 +678,16 @@ int main(void){
 			adc_read_enable = false;
 		}			
 		dog_home();
-		//*
-		if(0==twi_rx_task()){
-			// we got new data via twi
-			// save new values to variables
-			pwm_freq = rx.pwm_freq;
-			set_pwm_freq(pwm_freq);
-			delay_value = rx.time_value;
-			water_value = rx.water_value;
-			i2c_tx_ready = 1;
-		}
-		//*/
+		
+		twi_rx_task();
+		// we got new data via twi
+		// save new values to variables
+		pwm_freq = rx.pwm_freq;
+		set_pwm_freq(pwm_freq);
+		delay_value = rx.time_value;
+		water_value = rx.water_value;
+	
+		
 		
 		switch (status){
 			case OFF:{
@@ -701,6 +703,7 @@ int main(void){
 				}else{					
 					if(off == false){
 						DISPLAY_PORT &= ~(1<<DISPLAY_LIGHT);
+						DDRB &= ~(1<<PWM);
 						save_pwm_values();
 						dog_clear_lcd();
 						dog_transmit(LCD_OFF);
@@ -739,7 +742,6 @@ int main(void){
 						}					
 					}
 				}else{
-					//#warning: "TODO: implement delay"
 					if(second/60 >= delay_value){
 						pwm_value_aux = adc_value[POT_VALUE];	//start fan
 						enable_pwm(pwm_value_aux);
@@ -769,9 +771,6 @@ int main(void){
 							if(delay_value < 0) delay_value = 0;
 						}							
 						print_pgm_delay(delay_value);
-						//}else{
-						//	print_pgm_delay(0xFFFF-delay_value);
-						//}
 						
 					}else{
 						if(!(SH_PIN & (1<<POT_SWITCH))){
@@ -795,19 +794,23 @@ int main(void){
 				break;
 			}
 		}
-		//*/
-		// make sure all values are ready to send to the master
-		if(i2c_tx_ready){
-			tx.pwm_freq = pwm_freq;
-			tx.time_value = delay_value;
-			tx.water_value = water_value;
-			tx.fet_temp = fet_temp;
-			tx.water_temp = water_temp;
-			tx.vbat = vbat.integer * 100 + vbat.fraction;
-			tx.cal_temperature = 0;
-			tx.cal_voltage = 0;
-			twi_tx_task();
-		}
+		//rw data
+		tx.pwm_freq = pwm_freq;
+		rx.pwm_freq = pwm_freq;
+		tx.time_value = delay_value;
+		rx.time_value = delay_value;
+		tx.water_value = water_value;
+		rx.water_value = water_value;
+		tx.cal_temperature = 0;
+		rx.cal_temperature = 0;
+		tx.cal_voltage = 0;
+		rx.cal_voltage = 0;
+		//ro data
+		tx.water_temp = water_temp;
+		tx.fet_temp = fet_temp;
+		tx.vbat = vbat.integer * 100 + vbat.fraction;
+		twi_tx_task();
+		
 	}
 }
 /***********************************************************************************************/

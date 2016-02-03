@@ -51,7 +51,7 @@ uint8_t calculateCRC8(uint8_t crc, volatile uint8_t* data, uint8_t len){
 	return crc;
 }
 
-uint8_t serialize_rxdata(rx_t rx, uint8_t size, volatile uint8_t buffer[size]){
+uint8_t serialize_rxdata(uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(rx_t)){
 		return 0;
 	}
@@ -64,7 +64,7 @@ uint8_t serialize_rxdata(rx_t rx, uint8_t size, volatile uint8_t buffer[size]){
 	return 1;
 }
 
-uint8_t deserialize_rxdata(rx_t rx, uint8_t size, volatile uint8_t buffer[size]){
+uint8_t deserialize_rxdata(uint8_t size, volatile uint8_t buffer[size]){
 	if(size != sizeof(rx)){
 		return 0;
 	}
@@ -101,7 +101,7 @@ uint8_t twi_rx_task(void){
 	if(rx_crc == i2crxdata[rx_size]){
 		//crc is correct
 		uint8_t ser_rx[rx_size];
-		if(serialize_rxdata(rx, rx_size, ser_rx)){
+		if(serialize_rxdata(rx_size, ser_rx)){
 			// check if new data differs from current data object
 			uint8_t ok = 0;
 			for(i=0; i<rx_size; i++){
@@ -109,13 +109,13 @@ uint8_t twi_rx_task(void){
 			}
 			if(ok){
 				//we got new data -> replace the old object 
-				if(deserialize_rxdata(rx, sizeof(rx), i2crxdata)){
+				if(deserialize_rxdata(sizeof(rx), i2crxdata)){
 					// everything went fine -> clean the buffer
 					for(i=0; i< i2c_buffer_size; i++){
 						i2crxdata[i] = 0;
 					}
-				}
-			}else return 1; 
+				}else return 1; 
+			}return 0;
 		}else return 1; 
 	}else return 1;
 	return 0;
