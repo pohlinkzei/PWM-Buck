@@ -687,8 +687,6 @@ int main(void){
 		delay_value = rx.time_value;
 		water_value = rx.water_value;
 	
-		
-		
 		switch (status){
 			case OFF:{
 				if(calculate_pwm_percent() > 0){

@@ -12166,6 +12166,8 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <part name="R2" library="0_Eigene" deviceset="R_10" device="" value="10k"/>
 <part name="S5" library="0_Eigene" deviceset="CON-RIA-183-05" device=""/>
 <part name="IC2" library="v-reg" deviceset="LP2950?*" device="ACZ" technology="-3.0"/>
+<part name="R3" library="0_Eigene" deviceset="R_10" device="" value="5k"/>
+<part name="GND2" library="supply1" deviceset="GND" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -12457,6 +12459,13 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <instance part="S5" gate="4" x="104.14" y="15.24" rot="R180"/>
 <instance part="S5" gate="5" x="104.14" y="22.86" rot="R180"/>
 <instance part="IC2" gate="G$1" x="116.84" y="93.98"/>
+<instance part="R3" gate="G$1" x="144.78" y="68.58" smashed="yes" rot="R270">
+<attribute name="NAME" x="143.51" y="66.04" size="1.778" layer="95" rot="R90"/>
+<attribute name="VALUE" x="147.32" y="66.04" size="1.27" layer="96" rot="R90"/>
+</instance>
+<instance part="GND2" gate="1" x="144.78" y="60.96" smashed="yes">
+<attribute name="VALUE" x="142.24" y="58.42" size="1.778" layer="96"/>
+</instance>
 </instances>
 <busses>
 <bus name="BUS:STUFE1,STUFE2,STUFE3,A0,CLIMATRONIC,DREHZAHL_POTI,DREHZAHL_SCHALTER,JUMPER_CLIMA,JUMPER_MANUELL,TEMP_FET,TEMP_KUEHL,LED,RELAIS,SPANNUNG,GEBLAESE_SH,INTERFACE1,INTERFACE2,PWM,KL.X,PROG_PWM_FREQ,PROG_TEMP,PROG_PWM_WERT">
@@ -12604,6 +12613,10 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <pinref part="X1" gate="-1" pin="S"/>
 <wire x1="193.04" y1="-68.58" x2="193.04" y2="-66.04" width="0.1524" layer="91"/>
 <junction x="193.04" y="-68.58"/>
+</segment>
+<segment>
+<pinref part="R3" gate="G$1" pin="2"/>
+<pinref part="GND2" gate="1" pin="GND"/>
 </segment>
 </net>
 <net name="VCC" class="0">
@@ -12811,8 +12824,11 @@ Source: http://www.onsemi.co.jp .. LM317M-D.PDF</description>
 <wire x1="119.38" y1="33.02" x2="121.92" y2="35.56" width="0.1524" layer="91"/>
 <wire x1="121.92" y1="35.56" x2="121.92" y2="53.34" width="0.1524" layer="91"/>
 <wire x1="121.92" y1="53.34" x2="121.92" y2="73.66" width="0.1524" layer="91"/>
-<wire x1="121.92" y1="73.66" x2="147.32" y2="73.66" width="0.1524" layer="91"/>
+<wire x1="121.92" y1="73.66" x2="144.78" y2="73.66" width="0.1524" layer="91"/>
 <pinref part="R28" gate="G$1" pin="2"/>
+<pinref part="R3" gate="G$1" pin="1"/>
+<wire x1="144.78" y1="73.66" x2="147.32" y2="73.66" width="0.1524" layer="91"/>
+<junction x="144.78" y="73.66"/>
 </segment>
 <segment>
 <pinref part="IC1" gate="G$1" pin="PB1(OC1A)"/>

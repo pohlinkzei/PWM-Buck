@@ -490,6 +490,10 @@ void dog_init(void){
 	DOG_RST_HIGH();
 	_delay_ms(1);
 	for(i=0;i<14;i++){
+		#ifdef USE_DOGM128
 		dog_transmit(init128[i]);
+		#else
+		dog_transmit(init128[i]);
+		#endif
 	}
 }

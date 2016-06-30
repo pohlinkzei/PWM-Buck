@@ -35,7 +35,7 @@
 #define KMH 15
 #define RPM 17
 
-
+#define USE_DOGM128
 #define COLUMNS 132
 #define ROWS 8//4
 
